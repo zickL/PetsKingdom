@@ -1,17 +1,35 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import "../styles/news.css";
-
-const initialItems = [
-    { id: "1", title: "Are these things dangerous for dogs?", link: "https://www.petmd.com/dog/nutrition/can-dogs-eat-pumpkin"},
-    { id: "2", title: "It Wasn't the Dog's Fault!", link: "https://dognews.com/mj-nelson-not-the-dogs-fault-handlers-owners-trainers-take-fair-share-of-blame-when-training-for-performance-events" },
-    { id: "3", title: "Dogs and Human Companions Bond!", link: "https://www.akc.org/expert-advice/lifestyle/is-the-dog-human-bond-unique/" },
-    
-];
+import { articleService } from '../services/database.js';
 
 const News = () => {
     const [filterText, setFilterText] = useState(""); 
-    const [items, setItems] = useState(initialItems);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        loadArticles();
+    }, []);
+
+    const loadArticles = async () => {
+        try {
+            setLoading(true);
+            const articles = await articleService.getAllArticles();
+            setItems(articles);
+        } catch (error) {
+            console.error('Error loading articles:', error);
+            setError('Failed to load articles');
+            // 如果数据库连接失败，使用默认数据
+            setItems([
+                { id: "1", title: "Are these things dangerous for dogs?", external_link: "https://www.petmd.com/dog/nutrition/can-dogs-eat-pumpkin"},
+                { id: "2", title: "It Wasn't the Dog's Fault!", external_link: "https://dognews.com/mj-nelson-not-the-dogs-fault-handlers-owners-trainers-take-fair-share-of-blame-when-training-for-performance-events" },
+                { id: "3", title: "Dogs and Human Companions Bond!", external_link: "https://www.akc.org/expert-advice/lifestyle/is-the-dog-human-bond-unique/" },
+            ]);
+        } finally {
+            setLoading(false);
+        }
+    };
   
     const handleFilterChange = (e) => {
       setFilterText(e.target.value.toLowerCase()); 
@@ -41,13 +59,25 @@ const News = () => {
     const filteredItems = items.filter(
       (item) =>
         item.title.toLowerCase().includes(filterText) ||
-        item.link.toLowerCase().includes(filterText)
+        (item.external_link && item.external_link.toLowerCase().includes(filterText))
     );
+
+    if (loading) {
+        return (
+            <main>
+                <div className="news-container">
+                    <h1>Resources</h1>
+                    <div className="loading">Loading articles...</div>
+                </div>
+            </main>
+        );
+    }
   
     return (
         <main>
             <div className="news-container">
                 <h1>Resources</h1>
+                {error && <div className="error-message">{error}</div>}
                 <div className="search-bar">
                 <input
                     type="text"
@@ -70,7 +100,7 @@ const News = () => {
                     >
                       <div className="news-row">
                           <span className="news-title">{item.title}</span>
-                          <a href={item.link} target="_blank" rel="noopener noreferrer" className="news-link">
+                          <a href={item.external_link} target="_blank" rel="noopener noreferrer" className="news-link">
                           External Link
                           </a>
                       </div>
@@ -87,4 +117,5 @@ const News = () => {
         </main>
     );
 };
+
 export default News;

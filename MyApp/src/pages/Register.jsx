@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import '../styles/register.css';
+import { userService } from '../services/database.js';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +16,8 @@ const Register = () => {
   });
 
   const [errors, setErrors] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -23,7 +26,6 @@ const Register = () => {
       [name]: type === 'checkbox' ? checked : value,
     });
     if (errors[name]) {
-      
       setErrors((prevErrors) => {
         const newErrors = { ...prevErrors };
         delete newErrors[name];
@@ -56,31 +58,62 @@ const Register = () => {
 
     setErrors(newErrors);
   };
-  const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const formErrors = validate();
-    if (!formData.name || !formData.email) {
-      lert("Please fill in all required fields.");
+    
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
       return;
     }
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({
-        name: '',
-        phone: '',
-        email: '',
-        breed: "",
-        otherBreed: "",
-        shippingAddress: "",
-        billingAddress: "",
-        useSameAddress: false,
-      });
-    }, 3000);
-    console.log("Form Submitted:", formData);
+
+    if (!formData.name || !formData.email) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    setLoading(true);
     
+    try {
+      // 准备要保存到数据库的数据
+      const userData = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        favorite_breed: formData.breed === 'Other' ? formData.otherBreed : formData.breed,
+        shipping_address: formData.shippingAddress,
+        billing_address: formData.billingAddress,
+        theme_preference: 'light' // 默认主题
+      };
+
+      // 保存到数据库
+      await userService.createUser(userData);
+      
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({
+          name: '',
+          phone: '',
+          email: '',
+          breed: "",
+          otherBreed: "",
+          shippingAddress: "",
+          billingAddress: "",
+          useSameAddress: false,
+          agreeTerms: false,
+        });
+        setErrors({});
+      }, 3000);
+      
+      console.log("User registered successfully:", userData);
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validate = () => {
@@ -109,6 +142,7 @@ const Register = () => {
               onChange={handleChange}
               onBlur={handleBlur}
               required
+              disabled={loading}
             />
             {errors.name && <span className="error">{errors.name}</span>}
           </div>
@@ -121,6 +155,7 @@ const Register = () => {
               value={formData.phone}
               onChange={handleChange}
               onBlur={handleBlur}
+              disabled={loading}
             />
           </div>
           <div className="personal">
@@ -133,6 +168,7 @@ const Register = () => {
               onChange={handleChange}
               onBlur={handleBlur}
               required
+              disabled={loading}
             />
             {errors.email && <span className="error">{errors.email}</span>}
           </div>
@@ -143,6 +179,7 @@ const Register = () => {
               name="breed"
               value={formData.breed}
               onChange={handleChange}
+              disabled={loading}
             >
               <option value="">--Please select--</option>
               <option value="Huskies">Huskies</option>
@@ -161,6 +198,7 @@ const Register = () => {
                 name="otherBreed"
                 value={formData.otherBreed}
                 onChange={handleChange}
+                disabled={loading}
               />
             </div>
           )}
@@ -172,6 +210,7 @@ const Register = () => {
               name="shippingAddress"
               value={formData.shippingAddress}
               onChange={handleChange}
+              disabled={loading}
             />
           </div>
           <div className="personal">
@@ -181,6 +220,7 @@ const Register = () => {
                 name="useSameAddress"
                 checked={formData.useSameAddress}
                 onChange={handleCheckboxChange}
+                disabled={loading}
               />
               Billing address same as shipping address
             </label>
@@ -194,6 +234,7 @@ const Register = () => {
               value={formData.billingAddress}
               onChange={handleChange}
               readOnly={formData.useSameAddress}
+              disabled={loading}
             />
           </div>
           <div className="personal">
@@ -205,11 +246,14 @@ const Register = () => {
                 checked={formData.agreeTerms}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
               Agree to terms and conditions
             </label>
           </div>
-          <button type="submit">Register</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Registering...' : 'Register'}
+          </button>
         </fieldset>
       </form>
       {submitted && (
